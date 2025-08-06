@@ -1,0 +1,310 @@
+defmodule ExJexlTest do
+  use ExUnit.Case
+  doctest ExJexl
+
+  describe "basic literals" do
+    test "evaluates integers" do
+      assert ExJexl.eval("42") == {:ok, 42}
+      assert ExJexl.eval("-17") == {:ok, -17}
+      assert ExJexl.eval("0") == {:ok, 0}
+    end
+
+    test "evaluates floats" do
+      assert ExJexl.eval("3.14") == {:ok, 3.14}
+      assert ExJexl.eval("-2.5") == {:ok, -2.5}
+    end
+
+    test "evaluates strings" do
+      assert ExJexl.eval(~s("hello")) == {:ok, "hello"}
+      assert ExJexl.eval("'world'") == {:ok, "world"}
+      assert ExJexl.eval(~s("")) == {:ok, ""}
+    end
+
+    test "evaluates booleans" do
+      assert ExJexl.eval("true") == {:ok, true}
+      assert ExJexl.eval("false") == {:ok, false}
+    end
+
+    test "evaluates null" do
+      assert ExJexl.eval("null") == {:ok, nil}
+    end
+  end
+
+  describe "identifiers and context" do
+    test "evaluates identifiers from context" do
+      context = %{"name" => "Alice", "age" => 30}
+      assert ExJexl.eval("name", context) == {:ok, "Alice"}
+      assert ExJexl.eval("age", context) == {:ok, 30}
+    end
+
+    test "returns nil for missing identifiers" do
+      assert ExJexl.eval("missing") == {:ok, nil}
+    end
+
+    test "works with atom keys" do
+      context = %{name: "Bob", age: 25}
+      assert ExJexl.eval("name", context) == {:ok, "Bob"}
+      assert ExJexl.eval("age", context) == {:ok, 25}
+    end
+  end
+
+  describe "arithmetic operations" do
+    test "addition" do
+      assert ExJexl.eval("5 + 3") == {:ok, 8}
+      assert ExJexl.eval("1.5 + 2.5") == {:ok, 4.0}
+    end
+
+    test "subtraction" do
+      assert ExJexl.eval("10 - 4") == {:ok, 6}
+      assert ExJexl.eval("3.5 - 1.2") == {:ok, 2.3}
+    end
+
+    test "multiplication" do
+      assert ExJexl.eval("6 * 7") == {:ok, 42}
+      assert ExJexl.eval("2.5 * 4") == {:ok, 10.0}
+    end
+
+    test "division" do
+      assert ExJexl.eval("15 / 3") == {:ok, 5.0}
+      assert ExJexl.eval("10 / 4") == {:ok, 2.5}
+    end
+
+    test "modulo" do
+      assert ExJexl.eval("17 % 5") == {:ok, 2}
+      assert ExJexl.eval("10 % 3") == {:ok, 1}
+    end
+
+    test "operator precedence" do
+      assert ExJexl.eval("2 + 3 * 4") == {:ok, 14}
+      assert ExJexl.eval("(2 + 3) * 4") == {:ok, 20}
+    end
+  end
+
+  describe "comparison operations" do
+    test "equality" do
+      assert ExJexl.eval("5 == 5") == {:ok, true}
+      assert ExJexl.eval("5 == 3") == {:ok, false}
+      assert ExJexl.eval("5 != 3") == {:ok, true}
+      assert ExJexl.eval("5 != 5") == {:ok, false}
+    end
+
+    test "relational operators" do
+      assert ExJexl.eval("5 > 3") == {:ok, true}
+      assert ExJexl.eval("3 > 5") == {:ok, false}
+      assert ExJexl.eval("5 >= 5") == {:ok, true}
+      assert ExJexl.eval("3 < 5") == {:ok, true}
+      assert ExJexl.eval("5 <= 5") == {:ok, true}
+    end
+
+    test "string comparison" do
+      assert ExJexl.eval(~s("apple" < "banana")) == {:ok, true}
+      assert ExJexl.eval(~s("zebra" > "apple")) == {:ok, true}
+    end
+  end
+
+  describe "logical operations" do
+    test "logical AND" do
+      assert ExJexl.eval("true && true") == {:ok, true}
+      assert ExJexl.eval("true && false") == {:ok, false}
+      assert ExJexl.eval("false && true") == {:ok, false}
+    end
+
+    test "logical OR" do
+      assert ExJexl.eval("true || false") == {:ok, true}
+      assert ExJexl.eval("false || true") == {:ok, true}
+      assert ExJexl.eval("false || false") == {:ok, false}
+    end
+
+    test "logical NOT" do
+      assert ExJexl.eval("!true") == {:ok, false}
+      assert ExJexl.eval("!false") == {:ok, true}
+      assert ExJexl.eval("!0") == {:ok, true}
+      assert ExJexl.eval("!1") == {:ok, false}
+    end
+
+    test "short-circuit evaluation" do
+      context = %{"x" => 5}
+      assert ExJexl.eval("false && x", context) == {:ok, false}
+      assert ExJexl.eval("true || x", context) == {:ok, true}
+    end
+  end
+
+  describe "property access" do
+    test "dot notation" do
+      context = %{"user" => %{"name" => "Alice", "age" => 30}}
+      assert ExJexl.eval("user.name", context) == {:ok, "Alice"}
+      assert ExJexl.eval("user.age", context) == {:ok, 30}
+    end
+
+    test "bracket notation" do
+      context = %{"user" => %{"name" => "Bob"}, "key" => "name"}
+      assert ExJexl.eval("user[key]", context) == {:ok, "Bob"}
+      assert ExJexl.eval(~s(user["name"]), context) == {:ok, "Bob"}
+    end
+
+    test "array access" do
+      context = %{"items" => [10, 20, 30]}
+      assert ExJexl.eval("items[0]", context) == {:ok, 10}
+      assert ExJexl.eval("items[1]", context) == {:ok, 20}
+      assert ExJexl.eval("items[2]", context) == {:ok, 30}
+    end
+
+    test "nested property access" do
+      context = %{
+        "data" => %{
+          "users" => [%{"name" => "Alice"}, %{"name" => "Bob"}]
+        }
+      }
+
+      assert ExJexl.eval("data.users[0].name", context) == {:ok, "Alice"}
+      assert ExJexl.eval("data.users[1].name", context) == {:ok, "Bob"}
+    end
+  end
+
+  describe "arrays" do
+    test "array literals" do
+      assert ExJexl.eval("[1, 2, 3]") == {:ok, [1, 2, 3]}
+      assert ExJexl.eval("[]") == {:ok, []}
+      assert ExJexl.eval(~s(["a", "b", "c"])) == {:ok, ["a", "b", "c"]}
+    end
+
+    test "mixed arrays" do
+      assert ExJexl.eval(~s([1, "hello", true, null])) == {:ok, [1, "hello", true, nil]}
+    end
+
+    test "nested arrays" do
+      assert ExJexl.eval("[[1, 2], [3, 4]]") == {:ok, [[1, 2], [3, 4]]}
+    end
+  end
+
+  describe "objects" do
+    test "object literals" do
+      result = ExJexl.eval(~s({"name": "Alice", "age": 30}))
+      assert result == {:ok, %{"name" => "Alice", "age" => 30}}
+    end
+
+    test "empty objects" do
+      assert ExJexl.eval("{}") == {:ok, %{}}
+    end
+
+    test "nested objects" do
+      result = ExJexl.eval(~s({"user": {"name": "Bob", "active": true}}))
+      expected = %{"user" => %{"name" => "Bob", "active" => true}}
+      assert result == {:ok, expected}
+    end
+  end
+
+  describe "built-in functions" do
+    test "length function" do
+      context = %{"items" => [1, 2, 3], "text" => "hello"}
+      assert ExJexl.eval("length(items)", context) == {:ok, 3}
+      assert ExJexl.eval("length(text)", context) == {:ok, 5}
+    end
+
+    test "keys function" do
+      context = %{"obj" => %{"a" => 1, "b" => 2}}
+      {:ok, keys} = ExJexl.eval("keys(obj)", context)
+      assert Enum.sort(keys) == ["a", "b"]
+    end
+
+    test "values function" do
+      context = %{"obj" => %{"a" => 1, "b" => 2}}
+      {:ok, values} = ExJexl.eval("values(obj)", context)
+      assert Enum.sort(values) == [1, 2]
+    end
+
+    test "type function" do
+      assert ExJexl.eval("type(42)") == {:ok, "number"}
+      assert ExJexl.eval(~s{type("hello")}) == {:ok, "string"}
+      assert ExJexl.eval("type(true)") == {:ok, "boolean"}
+      assert ExJexl.eval("type(null)") == {:ok, "null"}
+      assert ExJexl.eval("type([])") == {:ok, "array"}
+      assert ExJexl.eval("type({})") == {:ok, "object"}
+    end
+  end
+
+  describe "transforms" do
+    test "length transform" do
+      context = %{"items" => [1, 2, 3, 4]}
+      assert ExJexl.eval("items|length", context) == {:ok, 4}
+    end
+
+    test "string transforms" do
+      context = %{"text" => "Hello World"}
+      assert ExJexl.eval("text|upper", context) == {:ok, "HELLO WORLD"}
+      assert ExJexl.eval("text|lower", context) == {:ok, "hello world"}
+    end
+
+    test "array transforms" do
+      context = %{"numbers" => [3, 1, 4, 1, 5]}
+      assert ExJexl.eval("numbers|first", context) == {:ok, 3}
+      assert ExJexl.eval("numbers|last", context) == {:ok, 5}
+      assert ExJexl.eval("numbers|reverse", context) == {:ok, [5, 1, 4, 1, 3]}
+      assert ExJexl.eval("numbers|sort", context) == {:ok, [1, 1, 3, 4, 5]}
+      assert ExJexl.eval("numbers|unique", context) == {:ok, [3, 1, 4, 5]}
+    end
+
+    test "chained transforms" do
+      context = %{"items" => [1, 2, 3, 4, 5]}
+      assert ExJexl.eval("items|reverse|first", context) == {:ok, 5}
+    end
+  end
+
+  describe "membership operator" do
+    test "in operator with arrays" do
+      context = %{"items" => [1, 2, 3]}
+      assert ExJexl.eval("2 in items", context) == {:ok, true}
+      assert ExJexl.eval("5 in items", context) == {:ok, false}
+    end
+
+    test "in operator with objects" do
+      context = %{"obj" => %{"name" => "Alice", "age" => 30}}
+      assert ExJexl.eval(~s("name" in obj), context) == {:ok, true}
+      assert ExJexl.eval(~s("email" in obj), context) == {:ok, false}
+    end
+
+    test "in operator with strings" do
+      context = %{"text" => "hello world"}
+      assert ExJexl.eval(~s("world" in text), context) == {:ok, true}
+      assert ExJexl.eval(~s("goodbye" in text), context) == {:ok, false}
+    end
+  end
+
+  describe "complex expressions" do
+    test "conditional logic" do
+      context = %{"age" => 25}
+      assert ExJexl.eval("age >= 18 && age < 65", context) == {:ok, true}
+      assert ExJexl.eval("age < 18 || age >= 65", context) == {:ok, false}
+    end
+
+    test "mixed operations" do
+      context = %{"price" => 100, "discount" => 0.1, "tax" => 0.08}
+      assert ExJexl.eval("price * (1 - discount) * (1 + tax)", context) == {:ok, 97.2}
+    end
+
+    test "string concatenation" do
+      context = %{"first" => "John", "last" => "Doe"}
+      assert ExJexl.eval(~s(first + " " + last), context) == {:ok, "John Doe"}
+    end
+  end
+
+  describe "error handling" do
+    test "division by zero" do
+      assert ExJexl.eval("10 / 0") == {:error, "Division by zero"}
+    end
+
+    test "modulo by zero" do
+      assert ExJexl.eval("10 % 0") == {:error, "Modulo by zero"}
+    end
+
+    test "invalid syntax" do
+      assert {:error, _} = ExJexl.eval("1 + + 2")
+    end
+
+    test "eval! raises on error" do
+      assert_raise RuntimeError, fn ->
+        ExJexl.eval!("10 / 0")
+      end
+    end
+  end
+end
