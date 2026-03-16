@@ -9,6 +9,34 @@ defmodule ExJexl do
   alias ExJexl.Evaluator
   alias ExJexl.Parser
 
+  defmacro __using__(opts) do
+    transforms = Keyword.get(opts, :transforms, Macro.escape(%{}))
+    functions = Keyword.get(opts, :functions, Macro.escape(%{}))
+
+    quote do
+      defp __default_transforms__, do: unquote(transforms)
+      defp __default_functions__, do: unquote(functions)
+
+      def eval(expression, context \\ %{}, opts \\ []) do
+        merged_opts = [
+          transforms: Map.merge(__default_transforms__(), opts[:transforms] || %{}),
+          functions: Map.merge(__default_functions__(), opts[:functions] || %{})
+        ]
+
+        ExJexl.eval(expression, context, merged_opts)
+      end
+
+      def eval!(expression, context \\ %{}, opts \\ []) do
+        merged_opts = [
+          transforms: Map.merge(__default_transforms__(), opts[:transforms] || %{}),
+          functions: Map.merge(__default_functions__(), opts[:functions] || %{})
+        ]
+
+        ExJexl.eval!(expression, context, merged_opts)
+      end
+    end
+  end
+
   @doc """
   Evaluates a JEXL expression with the given context.
 

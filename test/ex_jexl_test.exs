@@ -1,3 +1,15 @@
+defmodule TestJexl do
+  use ExJexl,
+    transforms: %{
+      "double" => fn val -> val * 2 end,
+      "upcase" => &String.upcase/1,
+      "with_greeting" => fn val, ctx -> "#{ctx["greeting"]} #{val}" end
+    },
+    functions: %{
+      "add" => fn [a, b] -> a + b end
+    }
+end
+
 defmodule ExJexlTest do
   use ExUnit.Case
   doctest ExJexl
@@ -321,6 +333,12 @@ defmodule ExJexlTest do
       assert ExJexl.eval("value|double", %{"value" => 5}, opts) == {:ok, 10}
     end
 
+    test "custom transform with context (arity 2)" do
+      opts = [transforms: %{"greet" => fn val, ctx -> "#{ctx["greeting"]} #{val}" end}]
+      context = %{"name" => "Alice", "greeting" => "Hello"}
+      assert ExJexl.eval("name|greet", context, opts) == {:ok, "Hello Alice"}
+    end
+
     test "custom transform in chain" do
       opts = [transforms: %{"double" => fn val -> val * 2 end}]
       context = %{"items" => [1, 2, 3]}
@@ -372,6 +390,43 @@ defmodule ExJexlTest do
       assert ExJexl.eval("0 ? 'yes' : 'no'") == {:ok, "no"}
       assert ExJexl.eval("1 ? 'yes' : 'no'") == {:ok, "yes"}
       assert ExJexl.eval("null ? 'yes' : 'no'") == {:ok, "no"}
+    end
+  end
+
+  describe "use ExJexl wrapper module" do
+    test "default transforms work without opts" do
+      assert TestJexl.eval("value|double", %{"value" => 5}) == {:ok, 10}
+    end
+
+    test "default functions work without opts" do
+      assert TestJexl.eval("add(2, 3)") == {:ok, 5}
+    end
+
+    test "default transform with context (arity 2)" do
+      context = %{"name" => "World", "greeting" => "Hello"}
+      assert TestJexl.eval("name|with_greeting", context) == {:ok, "Hello World"}
+    end
+
+    test "per-call opts override defaults" do
+      opts = [transforms: %{"double" => fn val -> val * 3 end}]
+      assert TestJexl.eval("value|double", %{"value" => 5}, opts) == {:ok, 15}
+    end
+
+    test "per-call opts merge with defaults" do
+      opts = [transforms: %{"triple" => fn val -> val * 3 end}]
+      context = %{"value" => 5}
+      assert TestJexl.eval("value|double", context, opts) == {:ok, 10}
+      assert TestJexl.eval("value|triple", context, opts) == {:ok, 15}
+    end
+
+    test "eval! works with defaults" do
+      assert TestJexl.eval!("value|double", %{"value" => 5}) == 10
+    end
+
+    test "eval! raises on error" do
+      assert_raise RuntimeError, fn ->
+        TestJexl.eval!("10 / 0")
+      end
     end
   end
 

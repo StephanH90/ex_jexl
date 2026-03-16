@@ -9,7 +9,7 @@ defmodule ExJexl.Evaluator do
   @type env :: %{
           context: map(),
           functions: %{optional(String.t()) => (list() -> term())},
-          transforms: %{optional(String.t()) => (term() -> term())}
+          transforms: %{optional(String.t()) => (term() -> term()) | (term(), map() -> term())}
         }
 
   @doc """
@@ -219,6 +219,7 @@ defmodule ExJexl.Evaluator do
     case Map.get(custom_transforms, name) do
       nil -> Transforms.apply_transform(name, value)
       func when is_function(func, 1) -> {:ok, func.(value)}
+      func when is_function(func, 2) -> {:ok, func.(value, env[:context] || %{})}
     end
   end
 
