@@ -101,10 +101,10 @@ defmodule ExJexl.Parser do
   not_op = ascii_char([?!]) |> replace(:!) |> unwrap_and_tag(:op)
 
   # In operator - needs word boundaries to avoid matching parts of identifiers
-  in_op = 
+  in_op =
     string("in")
     |> lookahead(choice([whitespace, eos()]))
-    |> replace(:in) 
+    |> replace(:in)
     |> unwrap_and_tag(:op)
 
   # Property access
@@ -308,8 +308,29 @@ defmodule ExJexl.Parser do
     |> post_traverse({__MODULE__, :build_binary_left, []})
   )
 
+  # Ternary operator tokens
+  question_mark = ascii_char([??]) |> ignore()
+  ternary_colon = ascii_char([?:]) |> ignore()
+
+  # Ternary expression: condition ? true_expr : false_expr
+  defcombinatorp(
+    :ternary,
+    parsec(:logical_or)
+    |> optional(
+      ignore(whitespace)
+      |> ignore(question_mark)
+      |> ignore(whitespace)
+      |> concat(parsec(:expression))
+      |> ignore(whitespace)
+      |> ignore(ternary_colon)
+      |> ignore(whitespace)
+      |> concat(parsec(:expression))
+    )
+    |> post_traverse({__MODULE__, :build_ternary, []})
+  )
+
   # Main expression parser
-  defcombinatorp(:expression, parsec(:logical_or))
+  defcombinatorp(:expression, parsec(:ternary))
 
   # Main parser entry point
   defparsec(
@@ -323,6 +344,7 @@ defmodule ExJexl.Parser do
   @doc """
   Parse a JEXL expression string into an AST.
   """
+  @spec parse(String.t()) :: {:ok, term()} | {:error, term()}
   def parse(expression) when is_binary(expression) do
     case jexl_expression(expression) do
       {:ok, [ast], "", _, _, _} -> {:ok, ast}
@@ -348,6 +370,16 @@ defmodule ExJexl.Parser do
   def not_single_quote(_, context, _, _), do: {:cont, context}
 
   # AST building helpers
+
+  # Ternary: when there are 3 items it's condition ? true : false
+  def build_ternary(rest, [condition], context, _line, _offset) do
+    {rest, [condition], context}
+  end
+
+  def build_ternary(rest, [false_expr, true_expr, condition], context, _line, _offset) do
+    {rest, [{:ternary, [condition, true_expr, false_expr]}], context}
+  end
+
   def build_postfix(rest, [base], context, _line, _offset) do
     {rest, [base], context}
   end
@@ -359,15 +391,15 @@ defmodule ExJexl.Parser do
       {{:property_access, [identifier: prop]}, [{:identifier, obj}]} ->
         result = {:property_access, [{:identifier, obj}, {:identifier, prop}]}
         {rest, [result], context}
-      
+
       {{:bracket_access, [expr]}, [{:identifier, obj}]} ->
         result = {:bracket_access, [{:identifier, obj}, expr]}
         {rest, [result], context}
-      
+
       {{:bracket_access, [expr]}, [obj_ast]} ->
         result = {:bracket_access, [obj_ast, expr]}
         {rest, [result], context}
-        
+
       # Complex case: handle chains like data.users[0].name
       _ ->
         # ops contains the operations in reverse order
@@ -386,28 +418,28 @@ defmodule ExJexl.Parser do
   end
 
   defp build_chain_left_to_right([{:identifier, name}]), do: {:identifier, name}
-  
+
   defp build_chain_left_to_right([{:identifier, name} | rest]) do
     base = {:identifier, name}
     apply_operations(base, rest)
   end
-  
+
   defp build_chain_left_to_right([base | rest]) do
     apply_operations(base, rest)
   end
 
   defp apply_operations(acc, []), do: acc
-  
+
   defp apply_operations(acc, [{:property_access, [identifier: prop]} | rest]) do
     new_acc = {:property_access, [acc, {:identifier, prop}]}
     apply_operations(new_acc, rest)
   end
-  
+
   defp apply_operations(acc, [{:bracket_access, [expr]} | rest]) do
     new_acc = {:bracket_access, [acc, normalize_expr(expr)]}
     apply_operations(new_acc, rest)
   end
-  
+
   defp apply_operations(acc, [_unknown | rest]) do
     apply_operations(acc, rest)
   end

@@ -3,131 +3,138 @@ defmodule ExJexl.Evaluator do
   JEXL expression evaluator that processes parsed AST.
   """
 
+  alias ExJexl.Helpers
   alias ExJexl.Transforms
 
+  @type env :: %{
+          context: map(),
+          functions: %{optional(String.t()) => (list() -> term())},
+          transforms: %{optional(String.t()) => (term() -> term())}
+        }
+
   @doc """
-  Evaluates a parsed JEXL AST with the given context.
+  Evaluates a parsed JEXL AST with the given environment.
+
+  The env map contains `:context`, `:functions`, and `:transforms`.
   """
-  def eval(ast, context \\ %{})
+  @spec eval(term(), env()) :: {:ok, term()} | {:error, term()}
+  def eval(ast, env \\ %{context: %{}, functions: %{}, transforms: %{}})
 
   # Literals
-  def eval({:integer, value}, _context), do: {:ok, value}
-  def eval({:float, value}, _context), do: {:ok, value}
-  def eval({:string, value}, _context), do: {:ok, value}
-  def eval({:boolean, value}, _context), do: {:ok, value}
-  def eval({:null, nil}, _context), do: {:ok, nil}
+  def eval({:integer, value}, _env), do: {:ok, value}
+  def eval({:float, value}, _env), do: {:ok, value}
+  def eval({:string, value}, _env), do: {:ok, value}
+  def eval({:boolean, value}, _env), do: {:ok, value}
+  def eval({:null, nil}, _env), do: {:ok, nil}
 
   # Identifiers - look up in context
-  def eval({:identifier, name}, context) do
-    case get_nested_value(context, name) do
+  def eval({:identifier, name}, env) do
+    case get_nested_value(env.context, name) do
       {:ok, value} -> {:ok, value}
       :error -> {:ok, nil}
     end
   end
 
   # Arrays
-  def eval({:array, elements}, context) do
-    with {:ok, values} <- eval_list(elements, context) do
-      {:ok, values}
-    end
+  def eval({:array, elements}, env) do
+    eval_list(elements, env)
   end
 
   # Objects
-  def eval({:object, pairs}, context) do
-    eval_object_pairs(pairs, context, %{})
+  def eval({:object, pairs}, env) do
+    eval_object_pairs(pairs, env, %{})
   end
 
   # Property access: obj.prop
-  def eval({:property_access, [obj_ast, {:identifier, prop}]}, context) do
-    with {:ok, obj} <- eval(obj_ast, context) do
+  def eval({:property_access, [obj_ast, {:identifier, prop}]}, env) do
+    with {:ok, obj} <- eval(obj_ast, env) do
       get_property(obj, prop)
     end
   end
 
   # Bracket access: obj[key]
-  def eval({:bracket_access, [obj_ast, key_ast]}, context) do
-    with {:ok, obj} <- eval(obj_ast, context),
-         {:ok, key} <- eval(key_ast, context) do
+  def eval({:bracket_access, [obj_ast, key_ast]}, env) do
+    with {:ok, obj} <- eval(obj_ast, env),
+         {:ok, key} <- eval(key_ast, env) do
       get_bracket_value(obj, key)
     end
   end
 
-  # Binary operations
-  def eval({:binary_op, [op, left_ast, right_ast]}, context) do
-    case op do
-      # Logical operators (short-circuit)
-      :&& ->
-        with {:ok, left} <- eval(left_ast, context) do
-          if truthy?(left) do
-            eval(right_ast, context)
-          else
-            {:ok, left}
-          end
-        end
+  # Ternary expression
+  def eval({:ternary, [condition, true_expr, false_expr]}, env) do
+    with {:ok, cond_val} <- eval(condition, env) do
+      if Helpers.truthy?(cond_val) do
+        eval(true_expr, env)
+      else
+        eval(false_expr, env)
+      end
+    end
+  end
 
-      :|| ->
-        with {:ok, left} <- eval(left_ast, context) do
-          if truthy?(left) do
-            {:ok, left}
-          else
-            eval(right_ast, context)
-          end
-        end
+  # Binary operations - logical (short-circuit)
+  def eval({:binary_op, [:&&, left_ast, right_ast]}, env) do
+    with {:ok, left} <- eval(left_ast, env) do
+      if Helpers.truthy?(left), do: eval(right_ast, env), else: {:ok, left}
+    end
+  end
 
-      # Pipe operator (transforms)
-      :| ->
-        with {:ok, left} <- eval(left_ast, context) do
-          apply_transforms_chain(left, right_ast, context)
-        end
+  def eval({:binary_op, [:||, left_ast, right_ast]}, env) do
+    with {:ok, left} <- eval(left_ast, env) do
+      if Helpers.truthy?(left), do: {:ok, left}, else: eval(right_ast, env)
+    end
+  end
 
-      # Other binary operations
-      _ ->
-        with {:ok, left} <- eval(left_ast, context),
-             {:ok, right} <- eval(right_ast, context) do
-          case apply_binary_op(op, left, right) do
-            {:ok, result} -> {:ok, result}
-            {:error, _} = error -> error
-          end
-        end
+  # Pipe operator (transforms)
+  def eval({:binary_op, [:|, left_ast, right_ast]}, env) do
+    with {:ok, left} <- eval(left_ast, env) do
+      apply_transforms_chain(left, right_ast, env)
+    end
+  end
+
+  # Other binary operations
+  def eval({:binary_op, [op, left_ast, right_ast]}, env) do
+    with {:ok, left} <- eval(left_ast, env),
+         {:ok, right} <- eval(right_ast, env) do
+      apply_binary_op(op, left, right)
     end
   end
 
   # Unary operations
-  def eval({:unary, [{:op, :!}, expr_ast]}, context) do
-    with {:ok, value} <- eval(expr_ast, context) do
-      {:ok, !truthy?(value)}
+  def eval({:unary, [{:op, :!}, expr_ast]}, env) do
+    with {:ok, value} <- eval(expr_ast, env) do
+      {:ok, !Helpers.truthy?(value)}
     end
   end
 
   # Function calls
-  def eval({:function_call, [{:identifier, name} | args_ast]}, context) do
-    with {:ok, args} <- eval_list(args_ast, context) do
-      call_function(name, args, context)
+  def eval({:function_call, [{:identifier, name} | args_ast]}, env) do
+    with {:ok, args} <- eval_list(args_ast, env) do
+      call_function(name, args, env)
     end
   end
 
   # Fallback for unknown AST nodes
-  def eval(ast, _context) do
+  def eval(ast, _env) do
     {:error, "Unknown AST node: #{inspect(ast)}"}
   end
 
   # Helper functions
 
-  defp eval_list([], _context), do: {:ok, []}
+  defp eval_list([], _env), do: {:ok, []}
 
-  defp eval_list([head | tail], context) do
-    with {:ok, head_value} <- eval(head, context),
-         {:ok, tail_values} <- eval_list(tail, context) do
+  defp eval_list([head | tail], env) do
+    with {:ok, head_value} <- eval(head, env),
+         {:ok, tail_values} <- eval_list(tail, env) do
       {:ok, [head_value | tail_values]}
     end
   end
 
-  defp eval_object_pairs([], _context, acc), do: {:ok, acc}
+  defp eval_object_pairs([], _env, acc), do: {:ok, acc}
 
-  defp eval_object_pairs([{:pair, [key_ast, value_ast]} | rest], context, acc) do
+  defp eval_object_pairs([{:pair, [key_ast, value_ast]} | rest], env, acc) do
     with {:ok, key} <- get_object_key(key_ast),
-         {:ok, value} <- eval(value_ast, context) do
-      eval_object_pairs(rest, context, Map.put(acc, key, value))
+         {:ok, value} <- eval(value_ast, env) do
+      eval_object_pairs(rest, env, Map.put(acc, key, value))
     end
   end
 
@@ -140,6 +147,7 @@ defmodule ExJexl.Evaluator do
       nil ->
         # Try atom key if string key fails, and vice versa
         alt_key = if is_atom(key), do: Atom.to_string(key), else: String.to_existing_atom(key)
+
         case Map.get(context, alt_key) do
           nil -> :error
           value -> {:ok, value}
@@ -192,72 +200,41 @@ defmodule ExJexl.Evaluator do
   defp get_transform_name(_), do: {:error, "Invalid transform"}
 
   # Handle chained transforms like items|reverse|first
-  defp apply_transforms_chain(value, {:binary_op, [:| | [left_ast, right_ast]]}, context) do
-    # For nested transforms, first apply the left transform, then apply the right
+  defp apply_transforms_chain(value, {:binary_op, [:| | [left_ast, right_ast]]}, env) do
     with {:ok, transform_name} <- get_transform_name(left_ast),
-         {:ok, intermediate} <- Transforms.apply_transform(transform_name, value, context) do
-      apply_transforms_chain(intermediate, right_ast, context)
+         {:ok, intermediate} <- apply_transform(transform_name, value, env) do
+      apply_transforms_chain(intermediate, right_ast, env)
     end
   end
 
-  defp apply_transforms_chain(value, transform_ast, context) do
-    # Single transform
+  defp apply_transforms_chain(value, transform_ast, env) do
     with {:ok, transform_name} <- get_transform_name(transform_ast) do
-      Transforms.apply_transform(transform_name, value, context)
+      apply_transform(transform_name, value, env)
     end
   end
 
-  defp apply_binary_op(op, left, right) do
-    case op do
-      # Arithmetic
-      :+ ->
-        {:ok, add(left, right)}
+  defp apply_transform(name, value, env) do
+    custom_transforms = env[:transforms] || %{}
 
-      :- ->
-        {:ok, subtract(left, right)}
-
-      :* ->
-        {:ok, multiply(left, right)}
-
-      :/ ->
-        case divide(left, right) do
-          {:ok, result} -> {:ok, result}
-          {:error, _} = error -> error
-        end
-
-      :% ->
-        case modulo(left, right) do
-          {:ok, result} -> {:ok, result}
-          {:error, _} = error -> error
-        end
-
-      # Comparison
-      :== ->
-        {:ok, left == right}
-
-      :!= ->
-        {:ok, left != right}
-
-      :> ->
-        {:ok, compare(left, right) == :gt}
-
-      :< ->
-        {:ok, compare(left, right) == :lt}
-
-      :>= ->
-        {:ok, compare(left, right) in [:gt, :eq]}
-
-      :<= ->
-        {:ok, compare(left, right) in [:lt, :eq]}
-
-      # Membership
-      :in ->
-        {:ok, member?(left, right)}
-
-      _ ->
-        {:error, "Unknown binary operator: #{op}"}
+    case Map.get(custom_transforms, name) do
+      nil -> Transforms.apply_transform(name, value)
+      func when is_function(func, 1) -> {:ok, func.(value)}
     end
   end
+
+  defp apply_binary_op(:+, left, right), do: {:ok, add(left, right)}
+  defp apply_binary_op(:-, left, right), do: {:ok, subtract(left, right)}
+  defp apply_binary_op(:*, left, right), do: {:ok, multiply(left, right)}
+  defp apply_binary_op(:/, left, right), do: divide(left, right)
+  defp apply_binary_op(:%, left, right), do: modulo(left, right)
+  defp apply_binary_op(:==, left, right), do: {:ok, left == right}
+  defp apply_binary_op(:!=, left, right), do: {:ok, left != right}
+  defp apply_binary_op(:>, left, right), do: {:ok, compare(left, right) == :gt}
+  defp apply_binary_op(:<, left, right), do: {:ok, compare(left, right) == :lt}
+  defp apply_binary_op(:>=, left, right), do: {:ok, compare(left, right) in [:gt, :eq]}
+  defp apply_binary_op(:<=, left, right), do: {:ok, compare(left, right) in [:lt, :eq]}
+  defp apply_binary_op(:in, left, right), do: {:ok, member?(left, right)}
+  defp apply_binary_op(op, _, _), do: {:error, "Unknown binary operator: #{op}"}
 
   # Arithmetic helpers
   defp add(a, b) when is_number(a) and is_number(b), do: a + b
@@ -299,10 +276,7 @@ defmodule ExJexl.Evaluator do
   end
 
   defp compare(a, b) do
-    cond do
-      a == b -> :eq
-      true -> :ne
-    end
+    if a == b, do: :eq, else: :ne
   end
 
   # Membership helpers
@@ -315,18 +289,17 @@ defmodule ExJexl.Evaluator do
 
   defp member?(_, _), do: false
 
-  # Truthiness (JavaScript-like)
-  defp truthy?(nil), do: false
-  defp truthy?(false), do: false
-  defp truthy?(0), do: false
-  defp truthy?(n) when is_float(n) and n == 0.0, do: false
-  defp truthy?(""), do: false
-  defp truthy?([]), do: false
-  defp truthy?(%{}) when map_size(%{}) == 0, do: false
-  defp truthy?(_), do: true
-
   # Built-in function calls
-  defp call_function("length", [value], _context) do
+  defp call_function(name, args, env) do
+    custom_functions = env[:functions] || %{}
+
+    case Map.get(custom_functions, name) do
+      nil -> builtin_function(name, args)
+      func when is_function(func, 1) -> {:ok, func.(args)}
+    end
+  end
+
+  defp builtin_function("length", [value]) do
     case value do
       list when is_list(list) -> {:ok, length(list)}
       string when is_binary(string) -> {:ok, String.length(string)}
@@ -335,15 +308,15 @@ defmodule ExJexl.Evaluator do
     end
   end
 
-  defp call_function("keys", [map], _context) when is_map(map) do
+  defp builtin_function("keys", [map]) when is_map(map) do
     {:ok, Map.keys(map)}
   end
 
-  defp call_function("values", [map], _context) when is_map(map) do
+  defp builtin_function("values", [map]) when is_map(map) do
     {:ok, Map.values(map)}
   end
 
-  defp call_function("type", [value], _context) do
+  defp builtin_function("type", [value]) do
     type =
       cond do
         is_nil(value) -> "null"
@@ -359,7 +332,7 @@ defmodule ExJexl.Evaluator do
     {:ok, type}
   end
 
-  defp call_function(name, _args, _context) do
+  defp builtin_function(name, _args) do
     {:error, "Unknown function: #{name}"}
   end
 end

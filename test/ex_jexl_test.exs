@@ -288,6 +288,93 @@ defmodule ExJexlTest do
     end
   end
 
+  describe "custom functions" do
+    test "custom function with single arg" do
+      opts = [functions: %{"double" => fn [x] -> x * 2 end}]
+      assert ExJexl.eval("double(5)", %{}, opts) == {:ok, 10}
+    end
+
+    test "custom function with multiple args" do
+      opts = [functions: %{"add" => fn [a, b] -> a + b end}]
+      assert ExJexl.eval("add(1, 2)", %{}, opts) == {:ok, 3}
+    end
+
+    test "custom function with context" do
+      opts = [functions: %{"greet" => fn [name] -> "Hello, #{name}!" end}]
+      context = %{"name" => "Alice"}
+      assert ExJexl.eval("greet(name)", context, opts) == {:ok, "Hello, Alice!"}
+    end
+
+    test "custom function overrides built-in" do
+      opts = [functions: %{"length" => fn [_] -> 999 end}]
+      assert ExJexl.eval("length([1,2,3])", %{}, opts) == {:ok, 999}
+    end
+
+    test "falls back to built-in when no custom function" do
+      assert ExJexl.eval("length([1,2,3])", %{}, []) == {:ok, 3}
+    end
+  end
+
+  describe "custom transforms" do
+    test "custom transform" do
+      opts = [transforms: %{"double" => fn val -> val * 2 end}]
+      assert ExJexl.eval("value|double", %{"value" => 5}, opts) == {:ok, 10}
+    end
+
+    test "custom transform in chain" do
+      opts = [transforms: %{"double" => fn val -> val * 2 end}]
+      context = %{"items" => [1, 2, 3]}
+      assert ExJexl.eval("items|first|double", context, opts) == {:ok, 2}
+    end
+
+    test "custom transform overrides built-in" do
+      opts = [transforms: %{"upper" => fn _ -> "CUSTOM" end}]
+      assert ExJexl.eval("text|upper", %{"text" => "hello"}, opts) == {:ok, "CUSTOM"}
+    end
+
+    test "falls back to built-in when no custom transform" do
+      assert ExJexl.eval("text|upper", %{"text" => "hello"}, []) == {:ok, "HELLO"}
+    end
+  end
+
+  describe "ternary expressions" do
+    test "true condition" do
+      assert ExJexl.eval("true ? 1 : 2") == {:ok, 1}
+    end
+
+    test "false condition" do
+      assert ExJexl.eval("false ? 1 : 2") == {:ok, 2}
+    end
+
+    test "with context" do
+      context = %{"age" => 25}
+      assert ExJexl.eval("age >= 18 ? 'adult' : 'minor'", context) == {:ok, "adult"}
+    end
+
+    test "with context - false branch" do
+      context = %{"age" => 12}
+      assert ExJexl.eval("age >= 18 ? 'adult' : 'minor'", context) == {:ok, "minor"}
+    end
+
+    test "nested ternary" do
+      context = %{"score" => 85}
+
+      assert ExJexl.eval("score >= 90 ? 'A' : score >= 80 ? 'B' : 'C'", context) ==
+               {:ok, "B"}
+    end
+
+    test "ternary with expressions in branches" do
+      context = %{"x" => 10}
+      assert ExJexl.eval("x > 5 ? x * 2 : x + 1", context) == {:ok, 20}
+    end
+
+    test "truthy/falsy values" do
+      assert ExJexl.eval("0 ? 'yes' : 'no'") == {:ok, "no"}
+      assert ExJexl.eval("1 ? 'yes' : 'no'") == {:ok, "yes"}
+      assert ExJexl.eval("null ? 'yes' : 'no'") == {:ok, "no"}
+    end
+  end
+
   describe "error handling" do
     test "division by zero" do
       assert ExJexl.eval("10 / 0") == {:error, "Division by zero"}

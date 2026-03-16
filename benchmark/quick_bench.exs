@@ -45,7 +45,7 @@ defmodule QuickBench do
       "parse_only" => fn -> ExJexl.Parser.parse(expression) end,
       "eval_only" => fn ->
         {:ok, ast} = ExJexl.Parser.parse(expression)
-        ExJexl.Evaluator.eval(ast, @complex_context)
+        ExJexl.Evaluator.eval(ast, %{context: @complex_context, functions: %{}, transforms: %{}})
       end,
       "full_eval" => fn -> ExJexl.eval(expression, @complex_context) end
     },

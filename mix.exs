@@ -29,9 +29,12 @@ defmodule ExJexl.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
+      {:usage_rules, "~> 1.0", only: [:dev]},
       {:nimble_parsec, "~> 1.4"},
       {:benchee, "~> 1.0", only: :dev},
-      {:ex_doc, "~> 0.34", only: :dev, runtime: false}
+      {:ex_doc, "~> 0.34", only: :dev, runtime: false},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
     ]
   end
 
@@ -52,7 +55,7 @@ defmodule ExJexl.MixProject do
         "GitHub" => @source_url,
         "Changelog" => "#{@source_url}/blob/main/CHANGELOG.md"
       },
-      maintainers: ["Your Name"],
+      maintainers: ["Stephan H"],
       exclude_patterns: ["benchmark/*"]
     ]
   end
