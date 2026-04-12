@@ -195,31 +195,34 @@ defmodule ExJexl.Evaluator do
 
   defp get_bracket_value(_, _), do: {:ok, nil}
 
-  defp get_transform_name({:identifier, name}), do: {:ok, name}
-  defp get_transform_name({:function_call, [{:identifier, name} | _]}), do: {:ok, name}
-  defp get_transform_name(_), do: {:error, "Invalid transform"}
+  defp get_transform_info({:identifier, name}), do: {:ok, name, []}
+  defp get_transform_info({:function_call, [{:identifier, name} | args]}), do: {:ok, name, args}
+  defp get_transform_info(_), do: {:error, "Invalid transform"}
 
   # Handle chained transforms like items|reverse|first
   defp apply_transforms_chain(value, {:binary_op, [:| | [left_ast, right_ast]]}, env) do
-    with {:ok, transform_name} <- get_transform_name(left_ast),
-         {:ok, intermediate} <- apply_transform(transform_name, value, env) do
+    with {:ok, name, arg_asts} <- get_transform_info(left_ast),
+         {:ok, args} <- eval_list(arg_asts, env),
+         {:ok, intermediate} <- apply_transform(name, value, args, env) do
       apply_transforms_chain(intermediate, right_ast, env)
     end
   end
 
   defp apply_transforms_chain(value, transform_ast, env) do
-    with {:ok, transform_name} <- get_transform_name(transform_ast) do
-      apply_transform(transform_name, value, env)
+    with {:ok, name, arg_asts} <- get_transform_info(transform_ast),
+         {:ok, args} <- eval_list(arg_asts, env) do
+      apply_transform(name, value, args, env)
     end
   end
 
-  defp apply_transform(name, value, env) do
+  defp apply_transform(name, value, args, env) do
     custom_transforms = env[:transforms] || %{}
 
     case Map.get(custom_transforms, name) do
-      nil -> Transforms.apply_transform(name, value)
+      nil -> Transforms.apply_transform(name, value, args)
+      func when is_function(func, 3) -> {:ok, func.(value, args, env.context)}
+      func when is_function(func, 2) -> {:ok, func.(value, env.context)}
       func when is_function(func, 1) -> {:ok, func.(value)}
-      func when is_function(func, 2) -> {:ok, func.(value, env[:context] || %{})}
     end
   end
 

@@ -353,6 +353,21 @@ defmodule ExJexlTest do
     test "falls back to built-in when no custom transform" do
       assert ExJexl.eval("text|upper", %{"text" => "hello"}, []) == {:ok, "HELLO"}
     end
+
+    test "custom transform with arguments" do
+      opts = [transforms: %{"append" => fn val, args, _ctx -> val <> Enum.join(args, "") end}]
+      assert ExJexl.eval("name|append('!')", %{"name" => "hello"}, opts) == {:ok, "hello!"}
+    end
+
+    test "custom transform with multiple arguments" do
+      opts = [transforms: %{"between" => fn val, [lo, hi], _ctx -> val >= lo && val <= hi end}]
+      assert ExJexl.eval("age|between(18, 65)", %{"age" => 25}, opts) == {:ok, true}
+    end
+
+    test "transform with no args still works with arity-3 function" do
+      opts = [transforms: %{"double" => fn val, _args, _ctx -> val * 2 end}]
+      assert ExJexl.eval("x|double", %{"x" => 5}, opts) == {:ok, 10}
+    end
   end
 
   describe "ternary expressions" do
