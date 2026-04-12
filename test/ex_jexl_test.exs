@@ -445,6 +445,37 @@ defmodule ExJexlTest do
     end
   end
 
+  describe "intersects operator" do
+    test "arrays with common elements" do
+      ctx = %{"a" => [1, 2, 3], "b" => [2, 3, 4]}
+      assert ExJexl.eval("a intersects b", ctx) == {:ok, true}
+    end
+
+    test "arrays with no common elements" do
+      ctx = %{"a" => [1, 2], "b" => [3, 4]}
+      assert ExJexl.eval("a intersects b", ctx) == {:ok, false}
+    end
+
+    test "empty array intersects nothing" do
+      ctx = %{"a" => [], "b" => [1, 2]}
+      assert ExJexl.eval("a intersects b", ctx) == {:ok, false}
+    end
+
+    test "intersects with inline arrays" do
+      assert ExJexl.eval("[1, 2] intersects [2, 3]") == {:ok, true}
+    end
+
+    test "intersects with string arrays" do
+      ctx = %{"tags" => ["red", "blue"], "filter" => ["blue", "green"]}
+      assert ExJexl.eval("tags intersects filter", ctx) == {:ok, true}
+    end
+
+    test "intersects in compound expression" do
+      ctx = %{"tags" => ["admin"], "required" => ["admin", "super"]}
+      assert ExJexl.eval("tags intersects required && true", ctx) == {:ok, true}
+    end
+  end
+
   describe "error handling" do
     test "division by zero" do
       assert ExJexl.eval("10 / 0") == {:error, "Division by zero"}

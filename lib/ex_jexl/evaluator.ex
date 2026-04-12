@@ -238,6 +238,11 @@ defmodule ExJexl.Evaluator do
   defp apply_binary_op(:>=, left, right), do: {:ok, compare(left, right) in [:gt, :eq]}
   defp apply_binary_op(:<=, left, right), do: {:ok, compare(left, right) in [:lt, :eq]}
   defp apply_binary_op(:in, left, right), do: {:ok, member?(left, right)}
+
+  defp apply_binary_op(:intersects, left, right) when is_list(left) and is_list(right) do
+    {:ok, Enum.any?(left, &(&1 in right))}
+  end
+
   defp apply_binary_op(op, _, _), do: {:error, "Unknown binary operator: #{op}"}
 
   # Arithmetic helpers

@@ -107,6 +107,12 @@ defmodule ExJexl.Parser do
     |> replace(:in)
     |> unwrap_and_tag(:op)
 
+  intersects_op =
+    string("intersects")
+    |> lookahead(choice([whitespace, eos()]))
+    |> replace(:intersects)
+    |> unwrap_and_tag(:op)
+
   # Property access
   dot = ascii_char([?.]) |> replace(:.) |> unwrap_and_tag(:op)
 
@@ -265,7 +271,7 @@ defmodule ExJexl.Parser do
     parsec(:additive)
     |> repeat(
       ignore(whitespace)
-      |> concat(choice([ge_op, le_op, gt_op, lt_op, in_op]))
+      |> concat(choice([ge_op, le_op, gt_op, lt_op, intersects_op, in_op]))
       |> ignore(whitespace)
       |> concat(parsec(:additive))
     )
