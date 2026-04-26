@@ -18,7 +18,7 @@ defmodule ExJexl.Transforms do
       list when is_list(list) -> {:ok, length(list)}
       string when is_binary(string) -> {:ok, String.length(string)}
       map when is_map(map) -> {:ok, map_size(map)}
-      _ -> {:ok, 0}
+      _ -> {:ok, nil}
     end
   end
 

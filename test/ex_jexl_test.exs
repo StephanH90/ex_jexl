@@ -393,6 +393,18 @@ defmodule ExJexlTest do
     test "debug returns value unchanged with label" do
       assert {:ok, [1, 2]} = ExJexl.eval("x|debug('arr')", %{"x" => [1, 2]})
     end
+
+    test "length on number returns nil (was 0)" do
+      assert {:ok, nil} = ExJexl.eval("x|length", %{"x" => 42})
+    end
+
+    test "length on nil returns nil" do
+      assert {:ok, nil} = ExJexl.eval("x|length", %{"x" => nil})
+    end
+
+    test "length on boolean returns nil" do
+      assert {:ok, nil} = ExJexl.eval("x|length", %{"x" => true})
+    end
   end
 
   describe "membership operator" do
