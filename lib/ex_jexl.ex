@@ -12,10 +12,12 @@ defmodule ExJexl do
   defmacro __using__(opts) do
     transforms = Keyword.get(opts, :transforms, Macro.escape(%{}))
     functions = Keyword.get(opts, :functions, Macro.escape(%{}))
+    validators = Keyword.get(opts, :validators, [])
 
     quote do
       defp __default_transforms__, do: unquote(transforms)
       defp __default_functions__, do: unquote(functions)
+      defp __default_validators__, do: unquote(validators)
 
       def eval(expression, context \\ %{}, opts \\ []) do
         merged_opts = [
@@ -33,6 +35,11 @@ defmodule ExJexl do
         ]
 
         ExJexl.eval!(expression, context, merged_opts)
+      end
+
+      def validate(expression, opts \\ []) do
+        extra = opts[:validators] || []
+        ExJexl.Validator.validate(expression, __default_validators__() ++ extra)
       end
     end
   end

@@ -718,6 +718,38 @@ defmodule ExJexlTest do
     end
   end
 
+  describe "use ExJexl with validators" do
+    defmodule ValidatorJexl do
+      use ExJexl,
+        validators: [
+          fn _ast -> ["module-level error"] end
+        ]
+    end
+
+    test "validate/1 uses module-level validators" do
+      assert {:ok, ["module-level error"]} = ValidatorJexl.validate("1 + 1")
+    end
+
+    test "parse error returns {:error, _}" do
+      assert {:error, _} = ValidatorJexl.validate("1 + + 2")
+    end
+
+    test "validate/2 merges per-call validators after module-level" do
+      extra = fn _ast -> ["per-call error"] end
+
+      assert {:ok, ["module-level error", "per-call error"]} =
+               ValidatorJexl.validate("1 + 1", validators: [extra])
+    end
+
+    test "no module-level validators works when use ExJexl omits the opt" do
+      defmodule NoValidatorsJexl do
+        use ExJexl, transforms: %{}
+      end
+
+      assert {:ok, []} = NoValidatorsJexl.validate("1 + 1")
+    end
+  end
+
   describe "error handling" do
     test "division by zero" do
       assert ExJexl.eval("10 / 0") == {:error, "Division by zero"}
