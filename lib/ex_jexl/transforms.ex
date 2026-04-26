@@ -207,7 +207,10 @@ defmodule ExJexl.Transforms do
   end
 
   defp mapby_value(obj, key) when is_map(obj) do
-    Map.get(obj, key) || Map.get(obj, to_string(key))
+    case Map.fetch(obj, key) do
+      {:ok, v} -> v
+      :error -> Map.get(obj, to_string(key))
+    end
   end
 
   defp mapby_value(_obj, _key), do: nil

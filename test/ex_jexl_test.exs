@@ -512,6 +512,11 @@ defmodule ExJexlTest do
       # handled, so this is a sanity check that no path raises.
       assert {:ok, nil} = ExJexl.eval("nums|min", %{"nums" => [:atom_value]})
     end
+
+    test "mapby preserves false values (not coerced via ||)" do
+      ctx = %{"items" => [%{"a" => false}, %{"a" => true}]}
+      assert {:ok, [false, true]} = ExJexl.eval("items|mapby('a')", ctx)
+    end
   end
 
   describe "membership operator" do
