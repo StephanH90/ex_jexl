@@ -311,6 +311,66 @@ defmodule ExJexlTest do
       ctx = %{"obj" => %{"a" => nil, "b" => [1, nil, 3]}}
       assert {:ok, ~s({"a":null,"b":[1,null,3]})} = ExJexl.eval("obj|stringify", ctx)
     end
+
+    test "min on number list" do
+      assert {:ok, 1} = ExJexl.eval("nums|min", %{"nums" => [3, 1, 4, 1, 5]})
+    end
+
+    test "min filters non-numbers" do
+      assert {:ok, 2} = ExJexl.eval("nums|min", %{"nums" => [2, "x", nil, 5]})
+    end
+
+    test "min on empty list returns nil" do
+      assert {:ok, nil} = ExJexl.eval("nums|min", %{"nums" => []})
+    end
+
+    test "min on non-list returns nil" do
+      assert {:ok, nil} = ExJexl.eval("nums|min", %{"nums" => "not a list"})
+    end
+
+    test "max on number list" do
+      assert {:ok, 5} = ExJexl.eval("nums|max", %{"nums" => [3, 1, 4, 1, 5]})
+    end
+
+    test "max filters non-numbers" do
+      assert {:ok, 5} = ExJexl.eval("nums|max", %{"nums" => [3, "x", 5, nil]})
+    end
+
+    test "max on empty list returns nil" do
+      assert {:ok, nil} = ExJexl.eval("nums|max", %{"nums" => []})
+    end
+
+    test "sum on number list" do
+      assert {:ok, 15} = ExJexl.eval("nums|sum", %{"nums" => [1, 2, 3, 4, 5]})
+    end
+
+    test "sum filters non-numbers" do
+      assert {:ok, 6} = ExJexl.eval("nums|sum", %{"nums" => [1, "x", 2, nil, 3]})
+    end
+
+    test "sum on empty list returns 0" do
+      assert {:ok, 0} = ExJexl.eval("nums|sum", %{"nums" => []})
+    end
+
+    test "sum on non-list returns 0" do
+      assert {:ok, 0} = ExJexl.eval("nums|sum", %{"nums" => "x"})
+    end
+
+    test "avg on number list" do
+      assert {:ok, 3.0} = ExJexl.eval("nums|avg", %{"nums" => [1, 2, 3, 4, 5]})
+    end
+
+    test "avg filters non-numbers" do
+      assert {:ok, 2.0} = ExJexl.eval("nums|avg", %{"nums" => [1, "x", 2, nil, 3]})
+    end
+
+    test "avg on empty list returns nil" do
+      assert {:ok, nil} = ExJexl.eval("nums|avg", %{"nums" => []})
+    end
+
+    test "avg on non-list returns nil" do
+      assert {:ok, nil} = ExJexl.eval("nums|avg", %{"nums" => "x"})
+    end
   end
 
   describe "membership operator" do

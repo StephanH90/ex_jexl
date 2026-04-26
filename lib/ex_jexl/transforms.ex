@@ -143,6 +143,31 @@ defmodule ExJexl.Transforms do
     {:ok, IO.iodata_to_binary(:json.encode(value, encoder))}
   end
 
+  def apply_transform("min", value, _args) do
+    case filter_numbers(value) do
+      [] -> {:ok, nil}
+      nums -> {:ok, Enum.min(nums)}
+    end
+  end
+
+  def apply_transform("max", value, _args) do
+    case filter_numbers(value) do
+      [] -> {:ok, nil}
+      nums -> {:ok, Enum.max(nums)}
+    end
+  end
+
+  def apply_transform("sum", value, _args) do
+    {:ok, Enum.sum(filter_numbers(value))}
+  end
+
+  def apply_transform("avg", value, _args) do
+    case filter_numbers(value) do
+      [] -> {:ok, nil}
+      nums -> {:ok, Enum.sum(nums) / length(nums)}
+    end
+  end
+
   # Default case
   def apply_transform(name, _value, _args) do
     {:error, "Unknown transform: #{name}"}
@@ -153,4 +178,14 @@ defmodule ExJexl.Transforms do
   end
 
   defp mapby_value(_obj, _key), do: nil
+
+  defp filter_numbers(arr) when is_list(arr) do
+    Enum.filter(arr, &valid_number?/1)
+  end
+
+  defp filter_numbers(_), do: []
+
+  defp valid_number?(x) when is_integer(x), do: true
+  defp valid_number?(x) when is_float(x), do: x == x
+  defp valid_number?(_), do: false
 end
