@@ -92,6 +92,8 @@ defmodule ExJexl.Transforms do
     {:ok, abs(number)}
   end
 
+  def apply_transform("abs", _value, _args), do: {:ok, nil}
+
   def apply_transform("round", number, _args) when is_number(number) do
     {:ok, round(number)}
   end

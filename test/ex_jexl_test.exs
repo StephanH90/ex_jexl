@@ -421,6 +421,18 @@ defmodule ExJexlTest do
     test "last on map returns nil" do
       assert {:ok, nil} = ExJexl.eval("x|last", %{"x" => %{"a" => 1}})
     end
+
+    test "abs on string returns nil" do
+      assert {:ok, nil} = ExJexl.eval("x|abs", %{"x" => "hello"})
+    end
+
+    test "abs on nil returns nil" do
+      assert {:ok, nil} = ExJexl.eval("x|abs", %{"x" => nil})
+    end
+
+    test "abs on negative number works" do
+      assert {:ok, 5} = ExJexl.eval("x|abs", %{"x" => -5})
+    end
   end
 
   describe "membership operator" do
