@@ -98,13 +98,17 @@ defmodule ExJexl.Transforms do
     {:ok, round(number)}
   end
 
-  def apply_transform("floor", number, _args) when is_number(number) do
-    {:ok, trunc(number)}
+  def apply_transform("floor", n, _args) when is_number(n) do
+    {:ok, trunc(:math.floor(n * 1.0))}
   end
 
-  def apply_transform("ceil", number, _args) when is_number(number) do
-    {:ok, trunc(number) + if(number == trunc(number), do: 0, else: 1)}
+  def apply_transform("floor", _value, _args), do: {:ok, nil}
+
+  def apply_transform("ceil", n, _args) when is_number(n) do
+    {:ok, trunc(:math.ceil(n * 1.0))}
   end
+
+  def apply_transform("ceil", _value, _args), do: {:ok, nil}
 
   # Type checking transforms
   def apply_transform("type", value, _args) do

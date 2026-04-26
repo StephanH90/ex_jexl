@@ -433,6 +433,38 @@ defmodule ExJexlTest do
     test "abs on negative number works" do
       assert {:ok, 5} = ExJexl.eval("x|abs", %{"x" => -5})
     end
+
+    test "floor of negative float" do
+      assert {:ok, -2} = ExJexl.eval("x|floor", %{"x" => -1.5})
+    end
+
+    test "floor of positive float" do
+      assert {:ok, 1} = ExJexl.eval("x|floor", %{"x" => 1.7})
+    end
+
+    test "floor of integer" do
+      assert {:ok, 5} = ExJexl.eval("x|floor", %{"x" => 5})
+    end
+
+    test "floor of non-number returns nil" do
+      assert {:ok, nil} = ExJexl.eval("x|floor", %{"x" => "abc"})
+    end
+
+    test "ceil of negative float" do
+      assert {:ok, -1} = ExJexl.eval("x|ceil", %{"x" => -1.5})
+    end
+
+    test "ceil of positive float" do
+      assert {:ok, 2} = ExJexl.eval("x|ceil", %{"x" => 1.2})
+    end
+
+    test "ceil of integer" do
+      assert {:ok, 5} = ExJexl.eval("x|ceil", %{"x" => 5})
+    end
+
+    test "ceil of non-number returns nil" do
+      assert {:ok, nil} = ExJexl.eval("x|ceil", %{"x" => "abc"})
+    end
   end
 
   describe "membership operator" do
