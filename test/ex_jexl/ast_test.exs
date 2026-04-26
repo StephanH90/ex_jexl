@@ -211,5 +211,23 @@ defmodule ExJexl.ASTTest do
       {:ok, ast} = Parser.parse("a|x|y")
       assert AST.find_transforms(ast) |> length() == 2
     end
+
+    test "transform inside transform argument is found" do
+      {:ok, ast} = Parser.parse("a|f(b|x)")
+      names = AST.find_transforms(ast, :any) |> Enum.map(& &1.name) |> Enum.sort()
+      assert names == ["f", "x"]
+    end
+
+    test "transform inside argument of transform with multiple args" do
+      {:ok, ast} = Parser.parse("a|f(b|x, c|y)")
+      names = AST.find_transforms(ast, :any) |> Enum.map(& &1.name) |> Enum.sort()
+      assert names == ["f", "x", "y"]
+    end
+
+    test "transform deep in nested transform args" do
+      {:ok, ast} = Parser.parse("a|f([b|x, c])")
+      names = AST.find_transforms(ast, :any) |> Enum.map(& &1.name) |> Enum.sort()
+      assert names == ["f", "x"]
+    end
   end
 end

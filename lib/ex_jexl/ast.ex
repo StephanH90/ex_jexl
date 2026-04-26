@@ -161,6 +161,7 @@ defmodule ExJexl.AST do
       {:ok, name, args} ->
         new_subject = {:binary_op, [:|, subject, transform_ast]}
         acc = [%{name: name, subject: subject, args: args} | acc]
+        acc = Enum.reduce(args, acc, &gather_transforms/2)
         collect_pipe_chain(new_subject, rest, acc)
 
       :error ->
@@ -170,8 +171,12 @@ defmodule ExJexl.AST do
 
   defp collect_pipe_chain(subject, transform_call, acc) do
     case extract_transform_call(transform_call) do
-      {:ok, name, args} -> [%{name: name, subject: subject, args: args} | acc]
-      :error -> acc
+      {:ok, name, args} ->
+        acc = [%{name: name, subject: subject, args: args} | acc]
+        Enum.reduce(args, acc, &gather_transforms/2)
+
+      :error ->
+        acc
     end
   end
 
