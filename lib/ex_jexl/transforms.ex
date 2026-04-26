@@ -163,7 +163,12 @@ defmodule ExJexl.Transforms do
       other, enc -> :json.encode_value(other, enc)
     end
 
-    {:ok, IO.iodata_to_binary(:json.encode(value, encoder))}
+    try do
+      {:ok, IO.iodata_to_binary(:json.encode(value, encoder))}
+    rescue
+      ErlangError -> {:ok, nil}
+      Protocol.UndefinedError -> {:ok, nil}
+    end
   end
 
   def apply_transform("min", value, _args) do

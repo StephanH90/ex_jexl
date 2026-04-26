@@ -517,6 +517,10 @@ defmodule ExJexlTest do
       ctx = %{"items" => [%{"a" => false}, %{"a" => true}]}
       assert {:ok, [false, true]} = ExJexl.eval("items|mapby('a')", ctx)
     end
+
+    test "stringify on un-encodable value returns nil" do
+      assert {:ok, nil} = ExJexl.eval("x|stringify", %{"x" => {1, 2, 3}})
+    end
   end
 
   describe "membership operator" do
