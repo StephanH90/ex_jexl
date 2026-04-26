@@ -371,6 +371,28 @@ defmodule ExJexlTest do
     test "avg on non-list returns nil" do
       assert {:ok, nil} = ExJexl.eval("nums|avg", %{"nums" => "x"})
     end
+
+    test "debug returns value unchanged" do
+      assert {:ok, 42} = ExJexl.eval("x|debug", %{"x" => 42})
+    end
+
+    test "debug logs without label" do
+      import ExUnit.CaptureLog
+      log = capture_log(fn -> ExJexl.eval("x|debug", %{"x" => 42}) end)
+      assert log =~ "[JEXL debug]"
+      assert log =~ "42"
+    end
+
+    test "debug with label includes label in log" do
+      import ExUnit.CaptureLog
+      log = capture_log(fn -> ExJexl.eval("x|debug('myvar')", %{"x" => 42}) end)
+      assert log =~ "myvar"
+      assert log =~ "42"
+    end
+
+    test "debug returns value unchanged with label" do
+      assert {:ok, [1, 2]} = ExJexl.eval("x|debug('arr')", %{"x" => [1, 2]})
+    end
   end
 
   describe "membership operator" do

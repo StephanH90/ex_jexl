@@ -4,6 +4,7 @@ defmodule ExJexl.Transforms do
   """
 
   import ExJexl.Helpers, only: [truthy?: 1]
+  require Logger
 
   @doc """
   Apply a built-in transform to a value.
@@ -166,6 +167,16 @@ defmodule ExJexl.Transforms do
       [] -> {:ok, nil}
       nums -> {:ok, Enum.sum(nums) / length(nums)}
     end
+  end
+
+  def apply_transform("debug", value, []) do
+    Logger.info("[JEXL debug] value = #{inspect(value)}")
+    {:ok, value}
+  end
+
+  def apply_transform("debug", value, [label]) do
+    Logger.info("[JEXL debug] #{label}: #{inspect(value)}")
+    {:ok, value}
   end
 
   # Default case
