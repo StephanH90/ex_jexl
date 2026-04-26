@@ -89,7 +89,7 @@ defmodule ExJexl.Transforms do
 
   # Numeric transforms
   def apply_transform("abs", number, _args) when is_number(number) do
-    {:ok, abs(number)}
+    safe(fn -> abs(number) end)
   end
 
   def apply_transform("abs", _value, _args), do: {:ok, nil}
@@ -102,20 +102,22 @@ defmodule ExJexl.Transforms do
         _ -> 0
       end
 
-    power = :math.pow(10, ndigits)
-    {:ok, :math.floor(n * power + 0.5) / power}
+    safe(fn ->
+      power = :math.pow(10, ndigits)
+      :math.floor(n * power + 0.5) / power
+    end)
   end
 
   def apply_transform("round", _value, _args), do: {:ok, nil}
 
   def apply_transform("floor", n, _args) when is_number(n) do
-    {:ok, trunc(:math.floor(n * 1.0))}
+    safe(fn -> trunc(:math.floor(n * 1.0)) end)
   end
 
   def apply_transform("floor", _value, _args), do: {:ok, nil}
 
   def apply_transform("ceil", n, _args) when is_number(n) do
-    {:ok, trunc(:math.ceil(n * 1.0))}
+    safe(fn -> trunc(:math.ceil(n * 1.0)) end)
   end
 
   def apply_transform("ceil", _value, _args), do: {:ok, nil}
@@ -167,25 +169,25 @@ defmodule ExJexl.Transforms do
   def apply_transform("min", value, _args) do
     case filter_numbers(value) do
       [] -> {:ok, nil}
-      nums -> {:ok, Enum.min(nums)}
+      nums -> safe(fn -> Enum.min(nums) end)
     end
   end
 
   def apply_transform("max", value, _args) do
     case filter_numbers(value) do
       [] -> {:ok, nil}
-      nums -> {:ok, Enum.max(nums)}
+      nums -> safe(fn -> Enum.max(nums) end)
     end
   end
 
   def apply_transform("sum", value, _args) do
-    {:ok, Enum.sum(filter_numbers(value))}
+    safe(fn -> Enum.sum(filter_numbers(value)) end)
   end
 
   def apply_transform("avg", value, _args) do
     case filter_numbers(value) do
       [] -> {:ok, nil}
-      nums -> {:ok, Enum.sum(nums) / length(nums)}
+      nums -> safe(fn -> Enum.sum(nums) / length(nums) end)
     end
   end
 
@@ -219,4 +221,14 @@ defmodule ExJexl.Transforms do
   defp valid_number?(x) when is_integer(x), do: true
   defp valid_number?(x) when is_float(x), do: x == x
   defp valid_number?(_), do: false
+
+  defp safe(fun) do
+    try do
+      {:ok, fun.()}
+    rescue
+      ArithmeticError -> {:ok, nil}
+      ArgumentError -> {:ok, nil}
+      FunctionClauseError -> {:ok, nil}
+    end
+  end
 end

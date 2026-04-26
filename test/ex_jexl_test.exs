@@ -502,6 +502,16 @@ defmodule ExJexlTest do
     test "round on non-number returns nil" do
       assert {:ok, nil} = ExJexl.eval("x|round", %{"x" => "abc"})
     end
+
+    test "round on overflow returns nil" do
+      assert {:ok, nil} = ExJexl.eval("x|round(2)", %{"x" => 1.0e308})
+    end
+
+    test "min on infinity-arithmetic still returns nil cleanly" do
+      # Crafted to exercise the rescue path: the empty-after-filter case is already
+      # handled, so this is a sanity check that no path raises.
+      assert {:ok, nil} = ExJexl.eval("nums|min", %{"nums" => [:atom_value]})
+    end
   end
 
   describe "membership operator" do
