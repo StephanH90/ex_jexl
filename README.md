@@ -21,6 +21,8 @@ def deps do
 end
 ```
 
+**Requirements:** Elixir `~> 1.18` and OTP 27+ (the `stringify` transform uses the stdlib `:json` module).
+
 ## Quick Start
 
 ```elixir
@@ -131,7 +133,9 @@ ExJexl.eval("text|lower", context)            # => {:ok, "hello world"}
 ExJexl.eval("numbers|reverse|first", context) # => {:ok, 5}
 ```
 
-Available built-in transforms: `length`, `first`, `last`, `reverse`, `sort`, `unique`, `flatten`, `join`, `upper`, `lower`, `trim`, `split`, `keys`, `values`, `type`.
+Available built-in transforms: `length`, `first`, `last`, `reverse`, `sort`, `unique`, `flatten`, `join`, `mapby`, `stringify`, `upper`, `lower`, `trim`, `split`, `keys`, `values`, `abs`, `round`, `floor`, `ceil`, `min`, `max`, `sum`, `avg`, `debug`, `type`, `not`.
+
+Note: most built-ins return `nil` for type-mismatched inputs (e.g. `42|length`, `"hello"|first`) rather than raising — matching Caluma's pyjexl semantics.
 
 ### Built-in Functions
 
@@ -226,6 +230,92 @@ ExJexl.eval!("10 / 0")
 
 ```bash
 mix test
+```
+
+## Caluma compatibility
+
+`ex_jexl` aims to be a drop-in replacement for the JEXL evaluator inside
+[projectcaluma/caluma](https://github.com/projectcaluma/caluma) (`caluma_core/jexl.py`).
+Built-in transforms, error semantics (nil-on-error), and operator
+precedence (`intersects`) all match Caluma's pyjexl.
+
+What's intentionally **out of scope**:
+
+- Domain-specific transforms (`answer`, `task`, `tasks`, `groups`). Register
+  these as custom transforms in your application — see the
+  [Custom Transforms and Functions](#custom-transforms-and-functions) section.
+- Parsed-AST cache. If you need one, wrap `ExJexl.Parser.parse/1` with
+  your own caching layer (e.g. `:persistent_term`, `Cachex`, ETS).
+- Caluma's `_expr_stack` feature for `debug` (logging the surrounding
+  expression). `debug` here logs only the value (and optional label).
+
+## Analyzing expressions
+
+`ExJexl.AST` exposes the parsed AST for inspection — useful for dependency
+extraction, custom analyzers, etc.
+
+```elixir
+{:ok, ast} = ExJexl.Parser.parse("'q1'|answer + 'q2'|answer")
+
+# Find all transforms by name
+ExJexl.AST.find_transforms(ast, "answer")
+# => [
+#   %{name: "answer", subject: {:string, "q1"}, args: []},
+#   %{name: "answer", subject: {:string, "q2"}, args: []}
+# ]
+
+# Read-only fold to collect all identifiers
+ExJexl.AST.walk(ast, [], fn
+  {:identifier, name}, acc -> [name | acc]
+  _, acc -> acc
+end)
+```
+
+The AST format is documented in the `ExJexl.AST` module documentation.
+Walkers `prewalk/3` and `postwalk/3` mirror `Macro.prewalk/postwalk` for
+node-rewriting use cases.
+
+## Validation
+
+`ExJexl.Validator` runs a list of validator functions over a parsed
+expression and returns all errors at once.
+
+```elixir
+# Validator that requires `answer` transform subjects to be string literals
+answer_validator = fn ast ->
+  ast
+  |> ExJexl.AST.find_transforms("answer")
+  |> Enum.reject(fn %{subject: subject} -> match?({:string, _}, subject) end)
+  |> Enum.map(fn _ -> "answer subject must be a string slug" end)
+end
+
+ExJexl.Validator.validate("'q'|answer", [answer_validator])
+# => {:ok, []}
+
+ExJexl.Validator.validate("x|answer", [answer_validator])
+# => {:ok, ["answer subject must be a string slug"]}
+
+ExJexl.Validator.validate("1 + + 2", [answer_validator])
+# => {:error, "expected ..."}  # parse failure short-circuits
+```
+
+For application-level validators, pass them to `use ExJexl`:
+
+```elixir
+defmodule MyApp.Jexl do
+  use ExJexl,
+    transforms: %{...},
+    validators: [
+      &MyApp.Jexl.Validators.answer/1,
+      &MyApp.Jexl.Validators.task/1
+    ]
+end
+
+MyApp.Jexl.validate(expr)
+# uses module-level validators
+
+MyApp.Jexl.validate(expr, validators: [&extra_validator/1])
+# merges: module-level ++ per-call extras
 ```
 
 ## License
