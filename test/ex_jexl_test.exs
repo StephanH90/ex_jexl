@@ -283,6 +283,29 @@ defmodule ExJexlTest do
       ctx = %{"items" => [%{"a" => 1}, %{"b" => 2}]}
       assert {:ok, [1, nil]} = ExJexl.eval("items|mapby('a')", ctx)
     end
+
+    test "stringify on map produces compact JSON" do
+      ctx = %{"obj" => %{"a" => 1, "b" => "two"}}
+      assert {:ok, json} = ExJexl.eval("obj|stringify", ctx)
+      refute json =~ " "
+      assert :json.decode(json) == %{"a" => 1, "b" => "two"}
+    end
+
+    test "stringify on list" do
+      assert {:ok, "[1,2,3]"} = ExJexl.eval("nums|stringify", %{"nums" => [1, 2, 3]})
+    end
+
+    test "stringify on string" do
+      assert {:ok, "\"hello\""} = ExJexl.eval("s|stringify", %{"s" => "hello"})
+    end
+
+    test "stringify on number" do
+      assert {:ok, "42"} = ExJexl.eval("n|stringify", %{"n" => 42})
+    end
+
+    test "stringify on null" do
+      assert {:ok, "null"} = ExJexl.eval("x|stringify", %{"x" => nil})
+    end
   end
 
   describe "membership operator" do

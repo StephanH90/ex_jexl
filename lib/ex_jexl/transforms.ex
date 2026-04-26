@@ -134,6 +134,14 @@ defmodule ExJexl.Transforms do
 
   def apply_transform("mapby", _value, _args), do: {:ok, nil}
 
+  def apply_transform("stringify", nil, _args) do
+    {:ok, "null"}
+  end
+
+  def apply_transform("stringify", value, _args) do
+    {:ok, IO.iodata_to_binary(:json.encode(value))}
+  end
+
   # Default case
   def apply_transform(name, _value, _args) do
     {:error, "Unknown transform: #{name}"}
