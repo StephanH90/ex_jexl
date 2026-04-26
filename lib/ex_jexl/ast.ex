@@ -90,18 +90,7 @@ defmodule ExJexl.AST do
   def find_transforms(ast, name \\ :any)
 
   def find_transforms(ast, :any) do
-    ast
-    |> walk([], fn
-      {:binary_op, [:|, subject, transform_call]}, acc ->
-        case extract_transform_call(transform_call) do
-          {:ok, n, args} -> [%{name: n, subject: subject, args: args} | acc]
-          :error -> acc
-        end
-
-      _, acc ->
-        acc
-    end)
-    |> Enum.reverse()
+    gather_transforms(ast, []) |> Enum.reverse()
   end
 
   def find_transforms(ast, name) when is_binary(name) do
@@ -112,6 +101,78 @@ defmodule ExJexl.AST do
     ast
     |> find_transforms(:any)
     |> Enum.filter(fn %{name: n} -> n in names end)
+  end
+
+  # Recursive traversal that handles pipe chains specially to avoid double-counting.
+  # When we encounter a pipe, we unpack the entire right-nested chain at once
+  # and do NOT let the normal recursion descend into the chain's right side.
+  defp gather_transforms({:binary_op, [:|, subject, right]}, acc) do
+    # First recurse into the pipe's subject (non-chain child)
+    acc = gather_transforms(subject, acc)
+    # Unpack the full pipe chain starting from subject+right
+    collect_pipe_chain(subject, right, acc)
+  end
+
+  defp gather_transforms({:array, elements}, acc) do
+    Enum.reduce(elements, acc, &gather_transforms/2)
+  end
+
+  defp gather_transforms({:object, pairs}, acc) do
+    Enum.reduce(pairs, acc, fn {:pair, [_k, v]}, a -> gather_transforms(v, a) end)
+  end
+
+  defp gather_transforms({:property_access, [obj, _prop]}, acc) do
+    gather_transforms(obj, acc)
+  end
+
+  defp gather_transforms({:bracket_access, [obj, key]}, acc) do
+    acc = gather_transforms(obj, acc)
+    gather_transforms(key, acc)
+  end
+
+  defp gather_transforms({:ternary, [c, t, f]}, acc) do
+    acc = gather_transforms(c, acc)
+    acc = gather_transforms(t, acc)
+    gather_transforms(f, acc)
+  end
+
+  defp gather_transforms({:binary_op, [_op, l, r]}, acc) do
+    acc = gather_transforms(l, acc)
+    gather_transforms(r, acc)
+  end
+
+  defp gather_transforms({:unary, [_op_tag, expr]}, acc) do
+    gather_transforms(expr, acc)
+  end
+
+  defp gather_transforms({:function_call, [_head | args]}, acc) do
+    Enum.reduce(args, acc, &gather_transforms/2)
+  end
+
+  defp gather_transforms(_leaf, acc), do: acc
+
+  # Recursively unpacks right-nested pipes produced by the parser.
+  # The parser encodes `a|x|y` as `{:binary_op, [:|, a, {binary_op, [:|, x, y]}]}`.
+  # The evaluator treats the left of the inner pipe as the transform name and
+  # recurses on the right. We mirror that here, tracking the reconstructed
+  # left-associative pipe as the subject for each subsequent transform.
+  defp collect_pipe_chain(subject, {:binary_op, [:|, transform_ast, rest]}, acc) do
+    case extract_transform_call(transform_ast) do
+      {:ok, name, args} ->
+        new_subject = {:binary_op, [:|, subject, transform_ast]}
+        acc = [%{name: name, subject: subject, args: args} | acc]
+        collect_pipe_chain(new_subject, rest, acc)
+
+      :error ->
+        acc
+    end
+  end
+
+  defp collect_pipe_chain(subject, transform_call, acc) do
+    case extract_transform_call(transform_call) do
+      {:ok, name, args} -> [%{name: name, subject: subject, args: args} | acc]
+      :error -> acc
+    end
   end
 
   defp extract_transform_call({:identifier, name}), do: {:ok, name, []}

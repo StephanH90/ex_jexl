@@ -127,4 +127,89 @@ defmodule ExJexl.ASTTest do
       assert count == 3
     end
   end
+
+  describe "find_transforms/2" do
+    test "finds single transform with no args" do
+      {:ok, ast} = Parser.parse("x|length")
+      assert [match] = AST.find_transforms(ast, "length")
+      assert match.name == "length"
+      assert match.subject == {:identifier, "x"}
+      assert match.args == []
+    end
+
+    test "finds transform with args" do
+      {:ok, ast} = Parser.parse("q|answer(\"default\")")
+      assert [match] = AST.find_transforms(ast, "answer")
+      assert match.name == "answer"
+      assert match.subject == {:identifier, "q"}
+      assert match.args == [{:string, "default"}]
+    end
+
+    test "finds chained transforms" do
+      {:ok, ast} = Parser.parse("a|x|y")
+      matches = AST.find_transforms(ast, :any)
+      names = Enum.map(matches, & &1.name)
+      assert "x" in names
+      assert "y" in names
+      assert length(matches) == 2
+    end
+
+    test "subject of outer chain transform is inner pipe" do
+      {:ok, ast} = Parser.parse("a|x|y")
+      [_x_match, y_match] = AST.find_transforms(ast, :any) |> Enum.sort_by(& &1.name)
+      assert match?({:binary_op, [:|, _, _]}, y_match.subject)
+    end
+
+    test "any filter returns all transforms" do
+      {:ok, ast} = Parser.parse("a|x|y|z")
+      assert AST.find_transforms(ast, :any) |> length() == 3
+    end
+
+    test "string filter returns only matching name" do
+      {:ok, ast} = Parser.parse("a|x|y|x")
+      matches = AST.find_transforms(ast, "x")
+      assert length(matches) == 2
+      assert Enum.all?(matches, &(&1.name == "x"))
+    end
+
+    test "list filter returns matching names" do
+      {:ok, ast} = Parser.parse("a|x|y|z")
+      matches = AST.find_transforms(ast, ["x", "z"])
+      names = Enum.map(matches, & &1.name) |> Enum.sort()
+      assert names == ["x", "z"]
+    end
+
+    test "no match returns empty list" do
+      {:ok, ast} = Parser.parse("a|x")
+      assert [] == AST.find_transforms(ast, "missing")
+    end
+
+    test "expression with no transforms" do
+      {:ok, ast} = Parser.parse("a + b")
+      assert [] == AST.find_transforms(ast, :any)
+    end
+
+    test "transform inside ternary is found" do
+      {:ok, ast} = Parser.parse("c ? a|x : b|y")
+      names = AST.find_transforms(ast, :any) |> Enum.map(& &1.name) |> Enum.sort()
+      assert names == ["x", "y"]
+    end
+
+    test "transform inside array is found" do
+      {:ok, ast} = Parser.parse("[a|x, b|y]")
+      names = AST.find_transforms(ast, :any) |> Enum.map(& &1.name) |> Enum.sort()
+      assert names == ["x", "y"]
+    end
+
+    test "transform inside function call is found" do
+      {:ok, ast} = Parser.parse("f(a|x)")
+      assert [match] = AST.find_transforms(ast, :any)
+      assert match.name == "x"
+    end
+
+    test "default name filter is :any" do
+      {:ok, ast} = Parser.parse("a|x|y")
+      assert AST.find_transforms(ast) |> length() == 2
+    end
+  end
 end
