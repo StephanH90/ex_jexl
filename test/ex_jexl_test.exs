@@ -465,6 +465,43 @@ defmodule ExJexlTest do
     test "ceil of non-number returns nil" do
       assert {:ok, nil} = ExJexl.eval("x|ceil", %{"x" => "abc"})
     end
+
+    test "round half-up: 0.5 rounds to 1" do
+      assert {:ok, 1.0} = ExJexl.eval("x|round", %{"x" => 0.5})
+    end
+
+    test "round half-up: 1.5 rounds to 2 (not banker's 2)" do
+      assert {:ok, 2.0} = ExJexl.eval("x|round", %{"x" => 1.5})
+    end
+
+    test "round half-up: 2.5 rounds to 3 (not banker's 2)" do
+      assert {:ok, 3.0} = ExJexl.eval("x|round", %{"x" => 2.5})
+    end
+
+    test "round half-up negative: -0.5 rounds to 0 (towards positive)" do
+      assert {:ok, result} = ExJexl.eval("x|round", %{"x" => -0.5})
+      assert result == 0.0
+    end
+
+    test "round half-up negative: -1.5 rounds to -1 (towards positive)" do
+      assert {:ok, -1.0} = ExJexl.eval("x|round", %{"x" => -1.5})
+    end
+
+    test "round with decimal places" do
+      assert {:ok, 1.23} = ExJexl.eval("x|round(2)", %{"x" => 1.234})
+    end
+
+    test "round with decimal places half-up" do
+      assert {:ok, 1.24} = ExJexl.eval("x|round(2)", %{"x" => 1.235})
+    end
+
+    test "round on integer returns float" do
+      assert {:ok, 5.0} = ExJexl.eval("x|round", %{"x" => 5})
+    end
+
+    test "round on non-number returns nil" do
+      assert {:ok, nil} = ExJexl.eval("x|round", %{"x" => "abc"})
+    end
   end
 
   describe "membership operator" do

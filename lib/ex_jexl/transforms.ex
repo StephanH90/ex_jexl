@@ -94,9 +94,19 @@ defmodule ExJexl.Transforms do
 
   def apply_transform("abs", _value, _args), do: {:ok, nil}
 
-  def apply_transform("round", number, _args) when is_number(number) do
-    {:ok, round(number)}
+  def apply_transform("round", n, args) when is_number(n) do
+    ndigits =
+      case args do
+        [] -> 0
+        [d] when is_integer(d) -> d
+        _ -> 0
+      end
+
+    power = :math.pow(10, ndigits)
+    {:ok, :math.floor(n * power + 0.5) / power}
   end
+
+  def apply_transform("round", _value, _args), do: {:ok, nil}
 
   def apply_transform("floor", n, _args) when is_number(n) do
     {:ok, trunc(:math.floor(n * 1.0))}
