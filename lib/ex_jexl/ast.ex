@@ -14,7 +14,7 @@ defmodule ExJexl.AST do
       {:boolean, boolean}
       {:null, nil}
       {:identifier, name :: binary}
-      {:array, [{:integer | :float | ..., value}, ...]}
+      {:array, [ast]}
       {:object, [{:pair, [key_ast, value_ast]}, ...]}
       {:property_access, [obj_ast, {:identifier, prop}]}
       {:bracket_access, [obj_ast, key_ast]}
@@ -23,12 +23,12 @@ defmodule ExJexl.AST do
       {:unary, [{:op, :!}, expr_ast]}
       {:function_call, [{:identifier, name} | arg_asts]}
 
-  Pipe / transform encoding: `a|x|y` parses left-associative as
-  `{:binary_op, [:|, {:binary_op, [:|, a, x_call]}, y_call]}` where the
-  transform call (the right side of each pipe) is either `{:identifier, name}`
-  for a no-arg transform or `{:function_call, [{:identifier, name} | args]}`
-  for a transform with arguments. Use `find_transforms/2` to abstract over
-  this encoding.
+  Pipe / transform encoding: `a|x|y` parses right-nested as
+  `{:binary_op, [:|, a, {:binary_op, [:|, x, y]}]}`. The evaluator walks
+  this chain left-to-right (apply `x` to `a`, then `y` to the result).
+  `find_transforms/2` abstracts this encoding — it returns one match per
+  transform with the reconstructed left-associative subject (e.g. for
+  `a|x|y`, the subject of `y` is the AST of `a|x`).
   """
 
   @type ast :: tuple()
