@@ -121,8 +121,27 @@ defmodule ExJexl.Transforms do
     {:ok, !truthy?(value)}
   end
 
+  def apply_transform("mapby", arr, [key]) when is_list(arr) do
+    {:ok, Enum.map(arr, &mapby_value(&1, key))}
+  end
+
+  def apply_transform("mapby", arr, keys) when is_list(arr) and is_list(keys) and length(keys) > 1 do
+    result = Enum.map(arr, fn obj ->
+      Enum.map(keys, &mapby_value(obj, &1))
+    end)
+    {:ok, result}
+  end
+
+  def apply_transform("mapby", _value, _args), do: {:ok, nil}
+
   # Default case
   def apply_transform(name, _value, _args) do
     {:error, "Unknown transform: #{name}"}
   end
+
+  defp mapby_value(obj, key) when is_map(obj) do
+    Map.get(obj, key) || Map.get(obj, to_string(key))
+  end
+
+  defp mapby_value(_obj, _key), do: nil
 end

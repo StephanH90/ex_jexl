@@ -260,6 +260,29 @@ defmodule ExJexlTest do
       context = %{"items" => [1, 2, 3, 4, 5]}
       assert ExJexl.eval("items|reverse|first", context) == {:ok, 5}
     end
+
+    test "mapby with single key" do
+      ctx = %{"items" => [%{"a" => 1, "b" => 2}, %{"a" => 3, "b" => 4}]}
+      assert {:ok, [1, 3]} = ExJexl.eval("items|mapby('a')", ctx)
+    end
+
+    test "mapby with multiple keys" do
+      ctx = %{"items" => [%{"a" => 1, "b" => 2}, %{"a" => 3, "b" => 4}]}
+      assert {:ok, [[1, 2], [3, 4]]} = ExJexl.eval("items|mapby('a', 'b')", ctx)
+    end
+
+    test "mapby on non-list returns nil" do
+      assert {:ok, nil} = ExJexl.eval("x|mapby('a')", %{"x" => "not a list"})
+    end
+
+    test "mapby with no args returns nil" do
+      assert {:ok, nil} = ExJexl.eval("items|mapby", %{"items" => [%{"a" => 1}]})
+    end
+
+    test "mapby missing key yields nil entries" do
+      ctx = %{"items" => [%{"a" => 1}, %{"b" => 2}]}
+      assert {:ok, [1, nil]} = ExJexl.eval("items|mapby('a')", ctx)
+    end
   end
 
   describe "membership operator" do
