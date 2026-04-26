@@ -8,7 +8,7 @@ defmodule ExJexl.MixProject do
     [
       app: :ex_jexl,
       version: @version,
-      elixir: "~> 1.15",
+      elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       description: description(),
