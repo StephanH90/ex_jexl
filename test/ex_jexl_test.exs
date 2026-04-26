@@ -405,6 +405,22 @@ defmodule ExJexlTest do
     test "length on boolean returns nil" do
       assert {:ok, nil} = ExJexl.eval("x|length", %{"x" => true})
     end
+
+    test "first on non-list returns nil" do
+      assert {:ok, nil} = ExJexl.eval("x|first", %{"x" => "not a list"})
+    end
+
+    test "first on number returns nil" do
+      assert {:ok, nil} = ExJexl.eval("x|first", %{"x" => 42})
+    end
+
+    test "last on non-list returns nil" do
+      assert {:ok, nil} = ExJexl.eval("x|last", %{"x" => "not a list"})
+    end
+
+    test "last on map returns nil" do
+      assert {:ok, nil} = ExJexl.eval("x|last", %{"x" => %{"a" => 1}})
+    end
   end
 
   describe "membership operator" do

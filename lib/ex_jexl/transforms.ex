@@ -29,12 +29,16 @@ defmodule ExJexl.Transforms do
     end
   end
 
+  def apply_transform("first", _value, _args), do: {:ok, nil}
+
   def apply_transform("last", list, _args) when is_list(list) do
     case list do
       [] -> {:ok, nil}
       _ -> {:ok, List.last(list)}
     end
   end
+
+  def apply_transform("last", _value, _args), do: {:ok, nil}
 
   def apply_transform("reverse", list, _args) when is_list(list) do
     {:ok, Enum.reverse(list)}
