@@ -306,6 +306,11 @@ defmodule ExJexlTest do
     test "stringify on null" do
       assert {:ok, "null"} = ExJexl.eval("x|stringify", %{"x" => nil})
     end
+
+    test "stringify with nested nil values" do
+      ctx = %{"obj" => %{"a" => nil, "b" => [1, nil, 3]}}
+      assert {:ok, ~s({"a":null,"b":[1,null,3]})} = ExJexl.eval("obj|stringify", ctx)
+    end
   end
 
   describe "membership operator" do

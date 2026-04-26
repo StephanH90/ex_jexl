@@ -134,12 +134,13 @@ defmodule ExJexl.Transforms do
 
   def apply_transform("mapby", _value, _args), do: {:ok, nil}
 
-  def apply_transform("stringify", nil, _args) do
-    {:ok, "null"}
-  end
-
   def apply_transform("stringify", value, _args) do
-    {:ok, IO.iodata_to_binary(:json.encode(value))}
+    encoder = fn
+      nil, _enc -> "null"
+      other, enc -> :json.encode_value(other, enc)
+    end
+
+    {:ok, IO.iodata_to_binary(:json.encode(value, encoder))}
   end
 
   # Default case
