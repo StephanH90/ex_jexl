@@ -148,10 +148,13 @@ defmodule ExJexl.Transforms do
     {:ok, Enum.map(arr, &mapby_value(&1, key))}
   end
 
-  def apply_transform("mapby", arr, keys) when is_list(arr) and is_list(keys) and length(keys) > 1 do
-    result = Enum.map(arr, fn obj ->
-      Enum.map(keys, &mapby_value(obj, &1))
-    end)
+  def apply_transform("mapby", arr, keys)
+      when is_list(arr) and is_list(keys) and length(keys) > 1 do
+    result =
+      Enum.map(arr, fn obj ->
+        Enum.map(keys, &mapby_value(obj, &1))
+      end)
+
     {:ok, result}
   end
 

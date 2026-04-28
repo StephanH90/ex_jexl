@@ -82,11 +82,13 @@ defmodule ExJexl.AST do
   Chained pipes (`a|x|y`) yield one match per transform; the subject of an
   outer transform is the inner pipe AST.
   """
-  @spec find_transforms(ast, :any | String.t() | [String.t()]) :: [%{
-          name: String.t(),
-          subject: ast,
-          args: [ast]
-        }]
+  @spec find_transforms(ast, :any | String.t() | [String.t()]) :: [
+          %{
+            name: String.t(),
+            subject: ast,
+            args: [ast]
+          }
+        ]
   def find_transforms(ast, name \\ :any)
 
   def find_transforms(ast, :any) do

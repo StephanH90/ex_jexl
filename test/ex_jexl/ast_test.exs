@@ -77,10 +77,13 @@ defmodule ExJexl.ASTTest do
 
     test "transforms via the function" do
       {:ok, ast} = Parser.parse("x + 1")
-      {new_ast, _} = AST.prewalk(ast, nil, fn
-        {:integer, n}, a -> {{:integer, n + 100}, a}
-        node, a -> {node, a}
-      end)
+
+      {new_ast, _} =
+        AST.prewalk(ast, nil, fn
+          {:integer, n}, a -> {{:integer, n + 100}, a}
+          node, a -> {node, a}
+        end)
+
       assert match?({:binary_op, [:+, {:identifier, "x"}, {:integer, 101}]}, new_ast)
     end
   end
@@ -98,10 +101,13 @@ defmodule ExJexl.ASTTest do
 
     test "transforms bottom-up" do
       {:ok, ast} = Parser.parse("x + 1")
-      {new_ast, _} = AST.postwalk(ast, nil, fn
-        {:integer, n}, a -> {{:integer, n * 10}, a}
-        node, a -> {node, a}
-      end)
+
+      {new_ast, _} =
+        AST.postwalk(ast, nil, fn
+          {:integer, n}, a -> {{:integer, n * 10}, a}
+          node, a -> {node, a}
+        end)
+
       assert match?({:binary_op, [:+, {:identifier, "x"}, {:integer, 10}]}, new_ast)
     end
   end
@@ -109,21 +115,25 @@ defmodule ExJexl.ASTTest do
   describe "walk/3 (read-only fold)" do
     test "collects all identifiers" do
       {:ok, ast} = Parser.parse("a + b * c")
+
       ids =
         AST.walk(ast, [], fn
           {:identifier, name}, acc -> [name | acc]
           _, acc -> acc
         end)
+
       assert Enum.sort(ids) == ["a", "b", "c"]
     end
 
     test "counts integer literals" do
       {:ok, ast} = Parser.parse("[1, 2, 3]")
+
       count =
         AST.walk(ast, 0, fn
           {:integer, _}, acc -> acc + 1
           _, acc -> acc
         end)
+
       assert count == 3
     end
   end
