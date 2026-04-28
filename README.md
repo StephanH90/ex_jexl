@@ -16,7 +16,7 @@ Add `ex_jexl` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:ex_jexl, "~> 0.1.0"}
+    {:ex_jexl, "~> 0.2.0"}
   ]
 end
 ```
