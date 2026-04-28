@@ -1,7 +1,7 @@
 defmodule ExJexl.MixProject do
   use Mix.Project
 
-  @version "0.2.0"
+  @version "0.2.1"
   @source_url "https://github.com/stephanh90/ex_jexl"
 
   def project do
@@ -39,11 +39,7 @@ defmodule ExJexl.MixProject do
   end
 
   defp description do
-    """
-    A powerful and fast JEXL (JavaScript Expression Language) evaluator for Elixir.
-    Built with NimbleParsec for excellent performance and comprehensive feature support
-    including arithmetic, comparisons, property access, transforms, and business logic evaluation.
-    """
+    "JEXL (JavaScript Expression Language) evaluator for Elixir, built with NimbleParsec."
   end
 
   defp package do

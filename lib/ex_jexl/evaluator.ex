@@ -143,46 +143,24 @@ defmodule ExJexl.Evaluator do
   defp get_object_key(_), do: {:error, "Invalid object key"}
 
   defp get_nested_value(context, key) when is_map(context) do
-    case Map.get(context, key) do
-      nil ->
-        # Try atom key if string key fails, and vice versa
-        alt_key = if is_atom(key), do: Atom.to_string(key), else: String.to_existing_atom(key)
-
-        case Map.get(context, alt_key) do
-          nil -> :error
-          value -> {:ok, value}
-        end
-
-      value ->
-        {:ok, value}
-    end
-  rescue
-    ArgumentError ->
-      # String.to_existing_atom/1 raises if the atom doesn't exist
-      :error
+    lookup_with_alt_key(context, key)
   end
 
   defp get_nested_value(_, _), do: :error
 
   defp get_property(obj, prop) when is_map(obj) do
-    case Map.get(obj, prop) do
-      nil ->
-        case Map.get(obj, to_string(prop)) do
-          nil -> {:ok, nil}
-          value -> {:ok, value}
-        end
-
-      value ->
-        {:ok, value}
+    case lookup_with_alt_key(obj, prop) do
+      {:ok, value} -> {:ok, value}
+      :error -> {:ok, nil}
     end
   end
 
   defp get_property(_, _), do: {:ok, nil}
 
   defp get_bracket_value(obj, key) when is_map(obj) do
-    case Map.get(obj, key) do
-      nil -> {:ok, nil}
-      value -> {:ok, value}
+    case lookup_with_alt_key(obj, key) do
+      {:ok, value} -> {:ok, value}
+      :error -> {:ok, nil}
     end
   end
 
@@ -194,6 +172,37 @@ defmodule ExJexl.Evaluator do
   end
 
   defp get_bracket_value(_, _), do: {:ok, nil}
+
+  # Looks up a key in a map; on miss, tries the string/atom counterpart.
+  # Returns :error when neither variant is present (or no atom exists for the string).
+  defp lookup_with_alt_key(map, key) do
+    case Map.get(map, key) do
+      nil ->
+        case alt_key(key) do
+          {:ok, alt} ->
+            case Map.get(map, alt) do
+              nil -> :error
+              value -> {:ok, value}
+            end
+
+          :error ->
+            :error
+        end
+
+      value ->
+        {:ok, value}
+    end
+  end
+
+  defp alt_key(key) when is_atom(key), do: {:ok, Atom.to_string(key)}
+
+  defp alt_key(key) when is_binary(key) do
+    {:ok, String.to_existing_atom(key)}
+  rescue
+    ArgumentError -> :error
+  end
+
+  defp alt_key(_), do: :error
 
   defp get_transform_info({:identifier, name}), do: {:ok, name, []}
   defp get_transform_info({:function_call, [{:identifier, name} | args]}), do: {:ok, name, args}

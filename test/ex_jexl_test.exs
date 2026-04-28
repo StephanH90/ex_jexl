@@ -171,6 +171,23 @@ defmodule ExJexlTest do
       assert ExJexl.eval("data.users[0].name", context) == {:ok, "Alice"}
       assert ExJexl.eval("data.users[1].name", context) == {:ok, "Bob"}
     end
+
+    test "dot notation with atom-keyed nested maps" do
+      context = %{user: %{name: "Alice", age: 30}}
+      assert ExJexl.eval("user.name", context) == {:ok, "Alice"}
+      assert ExJexl.eval("user.age", context) == {:ok, 30}
+    end
+
+    test "bracket notation with atom-keyed nested maps" do
+      context = %{user: %{name: "Bob"}, key: "name"}
+      assert ExJexl.eval(~s(user["name"]), context) == {:ok, "Bob"}
+      assert ExJexl.eval("user[key]", context) == {:ok, "Bob"}
+    end
+
+    test "atom keys mixed with string keys at deeper levels" do
+      context = %{"data" => %{users: [%{name: "Carol"}]}}
+      assert ExJexl.eval("data.users[0].name", context) == {:ok, "Carol"}
+    end
   end
 
   describe "arrays" do

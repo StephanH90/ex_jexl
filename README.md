@@ -16,7 +16,7 @@ Add `ex_jexl` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:ex_jexl, "~> 0.2.0"}
+    {:ex_jexl, "~> 0.2.1"}
   ]
 end
 ```
@@ -83,6 +83,13 @@ ExJexl.eval("true || false")  # => {:ok, true}
 ExJexl.eval("!true")          # => {:ok, false}
 ```
 
+`intersects` tests whether two arrays share any element:
+
+```elixir
+ExJexl.eval("[1, 2] intersects [2, 3]")  # => {:ok, true}
+ExJexl.eval("[1, 2] intersects [3, 4]")  # => {:ok, false}
+```
+
 ### Property Access
 
 ```elixir
@@ -134,6 +141,8 @@ ExJexl.eval("numbers|reverse|first", context) # => {:ok, 5}
 ```
 
 Available built-in transforms: `length`, `first`, `last`, `reverse`, `sort`, `unique`, `flatten`, `join`, `mapby`, `stringify`, `upper`, `lower`, `trim`, `split`, `keys`, `values`, `abs`, `round`, `floor`, `ceil`, `min`, `max`, `sum`, `avg`, `debug`, `type`, `not`.
+
+`join` and `split` use a hardcoded `,` delimiter and ignore any arguments. Register a custom transform if you need a different separator.
 
 Note: most built-ins return `nil` for type-mismatched inputs (e.g. `42|length`, `"hello"|first`) rather than raising — matching Caluma's pyjexl semantics.
 
@@ -236,8 +245,8 @@ mix test
 
 `ex_jexl` aims to be a drop-in replacement for the JEXL evaluator inside
 [projectcaluma/caluma](https://github.com/projectcaluma/caluma) (`caluma_core/jexl.py`).
-Built-in transforms, error semantics (nil-on-error), and operator
-precedence (`intersects`) all match Caluma's pyjexl.
+Built-in transforms, operator precedence, and error semantics (nil-on-error)
+match Caluma's pyjexl, including the `intersects` array-overlap operator.
 
 What's intentionally **out of scope**:
 
